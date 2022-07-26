@@ -4,6 +4,7 @@ const cors = require('cors');
 const app = express();
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+const dns = require("node-dns");
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use((req, res, next) => {
@@ -61,19 +62,53 @@ app.get('/api/hello', function(req, res) {
 });
 
 app.post('/api/shorturl', function (req, res) {
-  const url = new ShortenedUrl({original: req.body.url});
-  url.save(function(err, data) {
+  if (!req.body.url) {
+    res.json({error: 'invalid url'});
+    return;
+  }
+  let urlObject;
+  try {
+    urlObject = new URL(req.body.url);
+  } catch (_) {
+    res.json({error: 'invalid url'});
+    return;
+  }
+
+  // Use of `dns.lookup` referenced and adapted from:
+  // https://stackoverflow.com/a/59346937/5472560
+  dns.lookup(urlObject.hostname, function(dnsErr, address, family) {
+    if (dnsErr) {
+      console.log(dnsErr);
+      res.json({error: 'invalid url'});
+      return;
+    }
+    const url = new ShortenedUrl({original: req.body.url});
+    url.save(function(err, data) {
+      if (err) {
+        console.log(err);
+        res.json({
+          error: "Failed to create url",
+          message: JSON.stringiy(err)
+        });
+      } else {
+        res.json({
+          original_url: req.body.url,
+          short_url: data.shortened
+        });
+      }
+    });
+  });
+});
+
+app.get('/api/shorturl/:shorturl', function(req, res) {
+  ShortenedUrl.findOne({shortened: req.params.shorturl}, function(err, data) {
     if (err) {
       console.log(err);
       res.json({
-        error: "Failed to create url",
-        message: JSON.stringiy(err)
+        error: 'Could not find that url'
       });
     } else {
-      res.json({
-        original_url: req.body.url,
-        short_url: data.shortened
-      });
+      res.redirect(data.original);
     }
   });
 });
