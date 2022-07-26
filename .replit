@@ -1,5 +1,4 @@
-run = "npm start"
-entrypoint = "index.js"
+run = "npm run start"
 
 [packager]
 language = "nodejs"
@@ -8,3 +7,6 @@ language = "nodejs"
   packageSearch = true
   guessImports = true
   enabledForHosting = false
+
+[nix]
+channel = "stable-22_05"
